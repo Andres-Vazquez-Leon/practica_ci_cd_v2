@@ -24,7 +24,7 @@ pipeline {
             steps {
                 script {
                     try {
-                        sh './run-tests.sh'
+                        sh 'mvn test'
                     } catch (Exception e) {
                         notifySlack("❌ Pruebas fallidas en la rama ${env.BRANCH_NAME}")
                         notifyEmail("Pruebas fallidas en la rama ${env.BRANCH_NAME}")
