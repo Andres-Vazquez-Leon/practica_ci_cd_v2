@@ -2,21 +2,22 @@ pipeline {
     agent any
 
     environment {
-        SLACK_WEBHOOK_URL = credentials('slack-webhook')    //slack-webhook-url
-        GIT_CREDENTIALS_ID = 'token_clase'  //git-credentials-id
+        SLACK_WEBHOOK_URL = credentials('slack-webhook')
+        GIT_CREDENTIALS_ID = 'token_clase'
         GIT_REPO_URL = 'https://github.com/Andres-Vazquez-Leon/practica_ci_cd_v2.git'
         MAIN_BRANCH = 'master'
+        EMAIL_RECIPIENTS = 'andres.vazquezleon01@gmail.com, manuelf.linor@gmail.com'
     }
 
     stages {
         stage('Checkout') {
             steps {
                 script {
-                    // Verifica si es la rama principal para evitar merge loops
+                    // Verifica si es la rama principal para evitar loops de merge
                     if (env.BRANCH_NAME == MAIN_BRANCH) {
-                        error "No se puede hacer merge desde la rama principal a sí misma."
+                        error "❌ No se puede hacer merge desde la rama principal a sí misma."
                     }
-                    // Clona el repo
+                    // Clona el repositorio
                     checkout scm
                 }
             }
@@ -26,12 +27,11 @@ pipeline {
             steps {
                 script {
                     try {
-                        // Ejecuta tus pruebas (ajusta el comando según tu stack)
-                        sh 'mvn test'        //./run-tests.sh
+                        // Ajusta este comando según tu stack de pruebas
+                        sh 'mvn test'
                     } catch (Exception e) {
-                        // Notifica error en Slack y correo
                         notifySlack("❌ Pruebas fallidas en la rama ${env.BRANCH_NAME}")
-                        notifyEmail("Pruebas fallidas en la rama ${env.BRANCH_NAME}")
+                        notifyEmail("❌ Pruebas fallidas en la rama ${env.BRANCH_NAME}")
                         error "Pruebas fallidas. Build marcado como fallido."
                     }
                 }
@@ -39,6 +39,9 @@ pipeline {
         }
 
         stage('Merge to Master') {
+            when {
+                expression { env.BRANCH_NAME != MAIN_BRANCH }
+            }
             steps {
                 script {
                     // Realiza el merge usando Git
@@ -50,9 +53,8 @@ pipeline {
                         git merge --no-ff ${env.BRANCH_NAME} -m "Merge automático desde ${env.BRANCH_NAME}"
                         git push origin ${MAIN_BRANCH}
                     """
-                    // Notifica merge exitoso
                     notifySlack("✅ Merge exitoso de ${env.BRANCH_NAME} a ${MAIN_BRANCH}")
-                    notifyEmail("Merge exitoso de ${env.BRANCH_NAME} a ${MAIN_BRANCH}")
+                    notifyEmail("✅ Merge exitoso de ${env.BRANCH_NAME} a ${MAIN_BRANCH}")
                 }
             }
         }
@@ -60,13 +62,13 @@ pipeline {
 
     post {
         success {
-            echo "Pipeline completado exitosamente."
+            echo "✅ Pipeline completado exitosamente."
         }
         failure {
-            echo "Pipeline fallido."
+            echo "❌ Pipeline fallido."
         }
         always {
-            echo "Pipeline terminado."
+            echo "🔁 Pipeline terminado."
         }
     }
 }
@@ -81,23 +83,14 @@ def notifySlack(message) {
     } catch (Exception e) {
         echo "⚠️ No se pudo enviar notificación a Slack: ${e.getMessage()}"
     }
-}"}' \
-            ${SLACK_WEBHOOK_URL}
-        """
-    } catch (Exception e) {
-        echo "⚠️ No se pudo enviar notificación a Slack: ${e.getMessage()}"
-    }
 }
 
 def notifyEmail(message) {
     try {
-        mail to: 'andres.vazquezleon01@gmail.com, manuelf.linor@gmail.com',
+        mail to: env.EMAIL_RECIPIENTS,
              subject: message,
              body: "Este es un mensaje automático de Jenkins."
     } catch (Exception e) {
-        echo "⚠️ No se pudo enviar notificación por correo: ${e.getMessage()}"
-    }
-} catch (Exception e) {
         echo "⚠️ No se pudo enviar notificación por correo: ${e.getMessage()}"
     }
 }
